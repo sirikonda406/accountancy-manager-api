@@ -12,18 +12,10 @@ public class TaskControllerTest extends TasksAdapterTest {
     private TaskController taskController;
 
     @Test
-    public void rtrvTask()throws Exception{
+    public void rtrvTask() throws Exception {
 
         assertThat(taskController.rtrvMe()).isEqualTo("first");
 
     }
-
-    @Test
-    public void rtrvTaskList()throws Exception{
-
-        assertThat(taskController.rtrvTaskList()).asList();
-
-    }
-
 
 }

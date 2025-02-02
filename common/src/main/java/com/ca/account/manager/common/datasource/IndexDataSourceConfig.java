@@ -22,7 +22,7 @@ import java.util.Map;
 
 @EnableTransactionManagement
 @EnableJpaRepositories(
-        basePackages ={"com.ca.account.manager.common.repos.domain","com.ca.account.manager.common.repos"},
+        basePackages ={"com.ca.account.manager.common.datasource.master"},
         entityManagerFactoryRef = "indexEntityManagerFactory",
         transactionManagerRef = "indexTransactionManager"
 )

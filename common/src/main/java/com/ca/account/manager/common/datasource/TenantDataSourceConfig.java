@@ -1,6 +1,6 @@
 package com.ca.account.manager.common.datasource;
 
-import com.ca.account.manager.common.EmployeeTask;
+import com.ca.account.manager.common.repository.EmployeeTask;
 import com.ca.account.manager.common.interceptor.CurrentTenantIdentifierResolverImpl;
 import jakarta.persistence.EntityManagerFactory;
 import org.hibernate.cfg.Environment;
@@ -22,9 +22,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 @EnableTransactionManagement
-@ComponentScan(basePackages = {"com.ca.account.manager.common.domain"})
+@ComponentScan(basePackages = {"com.ca.account.manager.common.repository"})
 @EnableJpaRepositories(
-        basePackages = {"com.ca.account.manager.common.domain"},
+        basePackages = {"com.ca.account.manager.common.repository"},
         entityManagerFactoryRef = "tenantEntityManagerFactory",
         transactionManagerRef = "tenantTransactionManager"
 )

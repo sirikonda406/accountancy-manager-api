@@ -1,6 +1,6 @@
 plugins {
     java
-    id("io.spring.dependency-management") version "1.1.0"
+    id("io.spring.dependency-management") version "1.1.6"
 }
 
 group = "com.ca.account.manager"
@@ -71,7 +71,7 @@ subprojects {
 
     dependencyManagement {
         imports {
-            mavenBom("org.springframework.boot:spring-boot-dependencies:3.2.2")
+            mavenBom("org.springframework.boot:spring-boot-dependencies:3.3.5")
             mavenBom( "org.testcontainers:testcontainers-bom:1.20.1")
         }
     }
