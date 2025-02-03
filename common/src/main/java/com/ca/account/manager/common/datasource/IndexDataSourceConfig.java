@@ -29,7 +29,7 @@ import java.util.Map;
 @Configuration
 public class IndexDataSourceConfig {
 
-    private DataSource indexDataSource;
+    private final DataSource indexDataSource;
 
 
     public IndexDataSourceConfig(DataSource indexDataSource) {
