@@ -19,6 +19,11 @@ tasks.getByName<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar
     this.archiveFileName.set("accountancy-manager-0.0.1-SNAPSHOT.jar")
 }
 
+tasks.bootBuildImage{
+    verboseLogging=true
+    imageName="accountancy-manager:dev"
+}
+
 
 tasks.test {
     useJUnitPlatform()

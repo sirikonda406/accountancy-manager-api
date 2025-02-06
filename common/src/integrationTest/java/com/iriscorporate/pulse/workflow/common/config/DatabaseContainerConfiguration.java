@@ -10,7 +10,6 @@ import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.test.context.ActiveProfiles;
@@ -26,6 +25,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.logging.Logger;
 
 
 @DataJpaTest
@@ -38,34 +38,61 @@ import java.sql.Statement;
 @Transactional("indexTransactionManager")
 public class DatabaseContainerConfiguration {
 
+    private static final Logger LOGGER = Logger.getLogger(DatabaseContainerConfiguration.class.getName());
+
     @Container
-    protected final static PostgreSQLContainer<?> postgres;
+    protected static final PostgreSQLContainer<?> POSTGRES;
 
-    private final static String TENANT_DB_SCRIPTS = "db/tenant";
+    private static final String TENANT_DB_SCRIPTS = "db/tenant";
+    private static final String TENANT_DATABASE = "pulsewsc7d004881d924624903afe81641a5d8d";
+    private static final String TENANT_SCHEMA = "67051f9afc2fe811f805d30f";
+    private static final String POSTGRES_DRIVER = "org.postgresql.Driver";
+    private static final String BASE_FLYWAY_LOCATION = "classpath:db/migration";
 
-    private static final String tenantDatabase = "pulsewsc7d004881d924624903afe81641a5d8d";
-    private static final String tenant = "67051f9afc2fe811f805d30f";
 
     static {
-        postgres = new PostgreSQLContainer<>("postgres:16.4").waitingFor((Wait.defaultWaitStrategy()));
-        postgres.start();
+        POSTGRES = new PostgreSQLContainer<>("postgres:16.4").waitingFor(Wait.defaultWaitStrategy());
+        POSTGRES.start();
     }
+
 
     protected static void setupTenantDatabases() {
-        try (Connection conn = DriverManager.getConnection(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
-             Statement stmt = conn.createStatement()
+        try (Connection connection = DriverManager.getConnection(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+             Statement statement = connection.createStatement()
         ) {
-            String sql = String.format("CREATE DATABASE %s", String.format("\"%s\"", tenantDatabase));
-            stmt.executeUpdate(sql);
+            // Create tenant database.
+            String createDbSQL = generateCreateDatabaseSQL(TENANT_DATABASE);
+            statement.executeUpdate(createDbSQL);
 
-            System.out.println("createAndPopulateTenantDatabase============================================" + postgres.getJdbcUrl());
-            String newURL = StringUtils.replace(postgres.getJdbcUrl(), "test", tenantDatabase);
-            Flyway.configure().locations(TENANT_DB_SCRIPTS).schemas(tenant).dataSource(DataSourceBuilder.create().url(newURL).password(postgres.getPassword()).username(postgres.getUsername()).build()).load().migrate();
+            LOGGER.info("Tenant database created at: " + POSTGRES.getJdbcUrl());
+
+            // Configure Flyway for the tenant database.
+            String newJdbcUrl = StringUtils.replace(POSTGRES.getJdbcUrl(), "test", TENANT_DATABASE);
+            configureFlyway(newJdbcUrl, POSTGRES.getUsername(), POSTGRES.getPassword()).migrate();
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            LOGGER.severe("Error setting up tenant databases: " + e.getMessage());
         }
     }
+
+
+    private static String generateCreateDatabaseSQL(String databaseName) {
+        return String.format("CREATE DATABASE %s", String.format("\"%s\"", databaseName));
+    }
+
+    private static Flyway configureFlyway(String url, String username, String password) {
+        return Flyway.configure()
+                .locations(TENANT_DB_SCRIPTS)
+                .schemas(TENANT_SCHEMA)
+                .dataSource(DataSourceBuilder.create()
+                        .url(url)
+                        .username(username)
+                        .password(password)
+                        .build())
+                .load();
+    }
+
 
     public static class DataSourceInitializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
 
@@ -74,18 +101,19 @@ public class DatabaseContainerConfiguration {
             TestPropertySourceUtils.addInlinedPropertiesToEnvironment(
                     applicationContext,
                     "spring.test.database.replace=none",
-                    "spring.datasource.url=" + postgres.getJdbcUrl(),
-                    "spring.datasource.username=" + postgres.getUsername(),
-                    "spring.datasource.password=" + postgres.getPassword(),
-                    "spring.datasource.driverClassName=org.postgresql.Driver",
-                    "flyway.locations=classpath:db/migration",
+                    "spring.datasource.url=" + POSTGRES.getJdbcUrl(),
+                    "spring.datasource.username=" + POSTGRES.getUsername(),
+                    "spring.datasource.password=" + POSTGRES.getPassword(),
+                    "spring.datasource.driverClassName=" + POSTGRES_DRIVER,
+                    "flyway.locations=" + BASE_FLYWAY_LOCATION,
                     "spring.jpa.hibernate.ddl-auto=create",
                     "spring.jpa.show-sql=true",
                     "spring.jpa.properties.hibernate.format_sql=true"
             );
 
-            System.out.println("ApplicationContextInitializer============================================" + postgres.getJdbcUrl());
+            LOGGER.info("ApplicationContext initialized with URL: " + POSTGRES.getJdbcUrl());
             setupTenantDatabases();
         }
     }
+
 }

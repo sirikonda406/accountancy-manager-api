@@ -2,9 +2,7 @@ version: '3.7'
 
 services:
   accountancy-manager-api:
-    image: docker.io/library/core:latest
-    build:
-      context: .
+    image: docker.io/library/accountancy-manager:dev
     container_name: accountancy-manager-api
     depends_on:
       - postgresql

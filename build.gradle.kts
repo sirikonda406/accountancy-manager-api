@@ -53,6 +53,9 @@ subprojects {
         implementation("org.apache.commons:commons-lang3:3.16.0")
         implementation("org.springframework.boot:spring-boot-starter-web")
 
+        //Flyway
+        implementation("org.flywaydb:flyway-core")
+        implementation("org.flywaydb:flyway-database-postgresql")
 
         //API Documentation
         implementation("io.swagger:swagger-annotations:1.6.10")
