@@ -26,6 +26,9 @@ public class DataSourceBasedMultiTenantConnectionProviderImpl extends AbstractDa
     private final Map<String, DataSource> TENANT_DATASOURCE_CACHE = new ConcurrentHashMap<>();
 
     @Autowired
+    private DataSource masterDataSource;
+
+    @Autowired
     private IndexDatabaseRepository indexDatabaseRepository;
 
     /**
@@ -93,12 +96,7 @@ public class DataSourceBasedMultiTenantConnectionProviderImpl extends AbstractDa
     protected DataSource selectAnyDataSource() {
         if (TENANT_DATASOURCE_CACHE.isEmpty()) {
             LOGGER.warn("Tenant data source cache is empty during selectAnyDataSource. Initializing cache...");
-            initializeTenantCache();
-        }
-
-        if (TENANT_DATASOURCE_CACHE.isEmpty()) {
-            LOGGER.error("No available tenants found after attempting to initialize tenant cache.");
-            throw new IllegalStateException("No available tenants to initialize a data source.");
+            return masterDataSource;
         }
 
         LOGGER.info("Returning the first available DataSource from the tenant cache.");
@@ -162,13 +160,13 @@ public class DataSourceBasedMultiTenantConnectionProviderImpl extends AbstractDa
             List<IndexDatabase> masterTenants = indexDatabaseRepository.findAll();
 
             if (masterTenants.isEmpty()) {
-                LOGGER.error("No tenants found in the database. Please ensure that tenant data is populated.");
-                throw new IllegalStateException("No tenants found in the database.");
+                LOGGER.warn("No tenants found in the database. Tenant cache will remain empty.");
+                return;
             }
 
             for (IndexDatabase masterTenant : masterTenants) {
                 LOGGER.debug("Adding tenant {} to the data source cache.", masterTenant.getIdschema());
-                TENANT_DATASOURCE_CACHE.putIfAbsent(masterTenant.getIdschema(), getHikariDataSource(masterTenant));
+                TENANT_DATASOURCE_CACHE.computeIfAbsent(masterTenant.getIdschema(), id -> getHikariDataSource(masterTenant));
             }
 
             LOGGER.info("Tenant cache successfully initialized with {} tenants.", TENANT_DATASOURCE_CACHE.size());
