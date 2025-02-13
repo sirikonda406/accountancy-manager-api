@@ -240,7 +240,7 @@
       <recent name="com.ca.account.manager.common.repos" />
     </key>
   </component>
-  <component name="RunManager" selected="Gradle.EmployeeTaskRepositoryTest">
+  <component name="RunManager" selected="Gradle.accountancy-manager-api [build]">
     <configuration name="EmployeeTaskRepositoryTest" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
       <ExternalSystemSettings>
         <option name="executionName" />
@@ -510,10 +510,10 @@
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Gradle.accountancy-manager-api [build]" />
+        <item itemvalue="Gradle.accountancy-manager-api [clean]" />
         <item itemvalue="Gradle.EmployeeTaskRepositoryTest" />
         <item itemvalue="Gradle.accountancy-manager-api [bootBuildImage]" />
-        <item itemvalue="Gradle.accountancy-manager-api [clean]" />
-        <item itemvalue="Gradle.accountancy-manager-api [build]" />
         <item itemvalue="Gradle.accountancy-manager-api [bootRun]" />
       </list>
     </recent_temporary>
