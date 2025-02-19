@@ -1,0 +1,27 @@
+services:
+  accountancy-manager-api:
+    image: docker.io/library/accountancy-manager:dev
+    container_name: accountancy-manager-api
+    depends_on:
+      - postgresql
+      - keycloak
+    ports:
+      - "8666:8666"
+    networks:
+      - accountant
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8666/actuator/health"]
+    environment:
+      - POSTGRES_USER="postgres"
+      - POSTGRES_PASSWORD="postgres"
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgresql:5432/postgres
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - KEYCLOAK_CLIENT_ID=accountant-client
+      - KEYCLOAK_CLIENT_SECRET=W6Pny6pUSvSdgxi08SCNAMG4Dbrz5AcV
+      - REDIRECT_URI=http://keycloak:8666/accountant/login/oauth2/code/accountant-client
+      - KEYCLOAK_ISSUER_URI=http://keycloak:8080/realms/accountant
+      - KEYCLOAK_AUTHORIZATION_URI=http://keycloak:8080/realms/accountant/protocol/openid-connect/auth
+      - KEYCLOAK_TOKEN_URI=http://keycloak:8080/realms/accountant/protocol/openid-connect/token
+      - KEYCLOAK_JWK_SET_URI=http://keycloak:8080/realms/accountant/protocol/openid-connect/certs
+      - KEYCLOAK_USER_INFO_URI=http://keycloak:8080/realms/accountant/protocol/openid-connect/userinfo

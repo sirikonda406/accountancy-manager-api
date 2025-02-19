@@ -4,7 +4,6 @@ import com.ca.account.manager.billing.BillingConfig;
 import com.ca.account.manager.common.CommonConfig;
 import com.ca.account.manager.payments.PaymentsConfig;
 import com.ca.account.manager.reports.ReportsConfig;
-import com.ca.account.manager.security.SecurityConfResourceServer;
 import com.ca.account.manager.tasks.TasksConfig;
 import org.modelmapper.ModelMapper;
 import org.springframework.context.annotation.Bean;
@@ -19,8 +18,7 @@ import org.springframework.context.annotation.Import;
         BillingConfig.class,
         TasksConfig.class,
         PaymentsConfig.class,
-        ReportsConfig.class,
-        SecurityConfResourceServer.class
+        ReportsConfig.class
 })
 public class CoreConfig {
 

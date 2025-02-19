@@ -1,0 +1,20 @@
+version: "3.9"
+services:
+  accountancy-manager-api:
+    extends:
+      service: accountancy-manager-api
+      file: apps/docker-compose-apps.yaml
+
+  keycloak:
+    extends:
+      service: keycloak
+      file: keycloak/docker-compose-keycloak.yaml
+
+  postgresql:
+    extends:
+      service: postgresql
+      file: postgres/docker-compose-postgres.yaml
+
+networks:
+  accountant:
+    driver: bridge

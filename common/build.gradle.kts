@@ -52,6 +52,8 @@ dependencies {
     implementation("com.fasterxml.jackson.core:jackson-core")
     implementation("org.hibernate.orm:hibernate-jpamodelgen")
     annotationProcessor("org.hibernate.orm:hibernate-jpamodelgen")
+    runtimeOnly("org.flywaydb:flyway-core")
+    runtimeOnly("org.flywaydb:flyway-database-postgresql")
 
     runtimeOnly("org.postgresql:postgresql")
 
