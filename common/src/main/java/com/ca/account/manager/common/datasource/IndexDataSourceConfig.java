@@ -1,7 +1,7 @@
 package com.ca.account.manager.common.datasource;
 
-import com.ca.account.manager.common.datasource.master.IndexDatabaseRepository;
 import com.ca.account.manager.common.datasource.master.IndexDatabase;
+import com.ca.account.manager.common.datasource.master.IndexDatabaseRepository;
 import jakarta.persistence.EntityManagerFactory;
 import org.hibernate.cfg.AvailableSettings;
 import org.hibernate.jpa.HibernatePersistenceProvider;
@@ -22,7 +22,7 @@ import java.util.Map;
 
 @EnableTransactionManagement
 @EnableJpaRepositories(
-        basePackages ={"com.ca.account.manager.common.datasource.master"},
+        basePackages = {"com.ca.account.manager.common.datasource.master"},
         entityManagerFactoryRef = "indexEntityManagerFactory",
         transactionManagerRef = "indexTransactionManager"
 )
@@ -39,16 +39,16 @@ public class IndexDataSourceConfig {
     @Bean(name = "indexEntityManagerFactory")
     @Primary
     public LocalContainerEntityManagerFactoryBean indexEntityManagerFactory() {
-       
+
         Map<String, Object> jpaPropertiesMap = new HashMap<>(new JpaProperties().getProperties());
         jpaPropertiesMap.put(AvailableSettings.FORMAT_SQL, true);
         jpaPropertiesMap.put(AvailableSettings.SHOW_SQL, true);
 
-        return getLocalContainerEntityManagerFactoryBean(indexDataSource,jpaPropertiesMap);
+        return getLocalContainerEntityManagerFactoryBean(indexDataSource, jpaPropertiesMap);
     }
 
     private LocalContainerEntityManagerFactoryBean getLocalContainerEntityManagerFactoryBean(DataSource indexDataSource, Map<String, Object> jpaPropertiesMap) {
-        LocalContainerEntityManagerFactoryBean entityManagerFactoryBean= new LocalContainerEntityManagerFactoryBean();
+        LocalContainerEntityManagerFactoryBean entityManagerFactoryBean = new LocalContainerEntityManagerFactoryBean();
         entityManagerFactoryBean.setDataSource(indexDataSource);
         entityManagerFactoryBean.setPersistenceProviderClass(HibernatePersistenceProvider.class);
 

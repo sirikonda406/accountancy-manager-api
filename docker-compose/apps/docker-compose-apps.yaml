@@ -2,6 +2,7 @@ services:
   accountancy-manager-api:
     image: docker.io/library/accountancy-manager:dev
     container_name: accountancy-manager-api
+    working_dir: /accountancy
     depends_on:
       - postgresql
       - keycloak
@@ -10,7 +11,7 @@ services:
     networks:
       - accountant
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8666/actuator/health"]
+      test: [ "CMD", "curl", "--fail", "http://localhost:8666/actuator/health" ]
     environment:
       - POSTGRES_USER="postgres"
       - POSTGRES_PASSWORD="postgres"

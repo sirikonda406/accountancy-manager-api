@@ -1,0 +1,55 @@
+{
+  "version": 3,
+  "name": "KrakenD on k8s",
+  "port": 8080,
+  "cache_ttl": "3600s",
+  "timeout": "60s",
+  "extra_config": {
+    "telemetry/logging": {
+      "level": "DEBUG"
+    }
+  },
+  "host": [
+    "http://movies:8080"
+  ],
+  "endpoints": [
+    {
+      "endpoint": "/debug",
+      "backend": [
+        {
+          "host": [
+            "http://krakend:8000"
+          ],
+          "url_pattern": "/__debug/debug"
+        }
+      ]
+    },
+    {
+      "endpoint": "/movies",
+      "backend": [
+        {
+          "host": [
+            "http://movies:8080"
+          ],
+          "url_pattern": "/movies",
+          "extra_config": {
+            "github.com/devopsfaith/krakend/proxy": {
+              "response_type": "string"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "endpoint": "/hello",
+      "backend": [
+        {
+          "host": [
+            "http://movies:8080"
+          ],
+          "url_pattern": "/hello"
+        }
+      ]
+    }
+  ]
+}

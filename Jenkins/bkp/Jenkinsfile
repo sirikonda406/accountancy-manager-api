@@ -1,0 +1,133 @@
+// Extract commonly used constants for clarity and reusability
+def SLEEP_DURATION = 50
+
+def getKubeConfigPath(String devClusterName) {
+	return "/home/irisrdadmin/.kube/${devClusterName}-config"
+}
+
+def uninstallHelmReleases(String kubeConfigPath) {
+	echo "Checking for existing Helm releases to uninstall..."
+    sh """
+        if helm list -q --kubeconfig ${kubeConfigPath} | grep -q .; then
+            echo "Uninstalling all Helm releases..."
+            helm uninstall \$(helm list -q --kubeconfig ${kubeConfigPath}) --kubeconfig ${kubeConfigPath}
+        else
+            echo "No Helm releases found. Nothing to uninstall."
+        fi
+    """
+}
+
+def deleteAllPVCs(String kubeConfigPath) {
+	echo "Deleting all PVCs..."
+	sh "kubectl --kubeconfig ${kubeConfigPath} delete pvc --all"
+}
+
+def getSecretsFilePath(String devClusterName) {
+	return "${devClusterName}.irisrd.com-secrets.yaml"
+}
+
+def installSecrets(String clusterName, String kubeConfigPath) {
+	def secretsFilePath = getSecretsFilePath(clusterName);
+	sh "kubectl apply -f ${secretsFilePath} --kubeconfig ${kubeConfigPath}"
+}
+
+def installHelmCharts(String clusterName, String kubeConfigPath) {
+	def helmCharts = ['common', 'tms', 'workflow', 'ui', 'sp', 'xservices', 'licensing']
+    for (chart in helmCharts) {
+		def helmCommand = "helm install ${clusterName}-${chart} ./irispulse-new/${chart} -f ${clusterName}.irisrd.com-settings.yaml --kubeconfig ${kubeConfigPath}"
+        echo "Running: ${helmCommand}"
+        sh helmCommand
+        sleep SLEEP_DURATION // Prevent installation race conditions
+    }
+}
+
+
+pipeline {
+	agent { label 'belndevlab01' }
+    environment {
+		PATH = "/opt/jmeter/bin:/opt/jmeter/bin:${env.PATH}"
+    }
+
+    parameters {
+		choice(name: 'UNINSTALL', choices: ['all', 'chartOnly', 'none'], description: 'Choose uninstall option')
+        choice(name: 'INSTALL', choices: ['all', 'none'], description: 'Choose install option')
+        choice(name: 'PULSEDATASETUP', choices: ['all', 'none'], description: 'Choose Pulse data setup option')
+        choice(name: 'DEV_CLUSTER_NAME', choices: ['pulse-dev-01', 'pulse-dev-02', 'pulse-dev-03', 'pulse-dev-04', 'pulse-dev-05', 'pulse-dev-06', 'pulse-dev-07', 'pulse-dev-08', 'pulse-dev-09', 'pulse-dev-10', 'pulse-dev-11', 'pulse-dev-12'], description: 'Select development cluster')
+        string(name: 'PULSE_DATA_SETUP', defaultValue: '/opt/jmeter/test.jmx', description: 'Path to JMeter test file')
+    }
+
+    stages {
+		stage('Clean Workspace') {
+			when { expression { params.UNINSTALL == 'all' } }
+            steps { cleanWs() }
+        }
+
+        stage('Uninstall Helm Charts Only') {
+			when { expression { params.UNINSTALL == 'chartOnly' } }
+            steps {
+				script {
+					def kubeConfigPath = getKubeConfigPath(env.DEV_CLUSTER_NAME)
+                    if (params.UNINSTALL == 'all') {
+						uninstallHelmReleases(kubeConfigPath)
+						echo "Removed Only Helm charts."
+                    }
+
+                }
+            }
+        }
+
+        stage('Uninstall Helm Charts and PVCs') {
+			when { expression { params.UNINSTALL == 'all' } }
+            steps {
+				script {
+					def kubeConfigPath = getKubeConfigPath(env.DEV_CLUSTER_NAME)
+                    // Uninstall Helm releases and all PVCs
+                   	uninstallHelmReleases(kubeConfigPath)
+
+                   	deleteAllPVCs(kubeConfigPath)
+
+                   	echo "Removed Helm charts and PVCs..."
+                }
+            }
+        }
+
+        stage('Install Helm Charts') {
+			when { expression { params.INSTALL == 'all' } }
+            steps {
+				checkout scmGit(
+                    branches: [[name: '*/dev']],
+                    extensions: [],
+                    gitTool: 'Default',
+                    userRemoteConfigs: [[credentialsId: 'IRISNext_Git', url: 'https://git3.irisxtract.com/git/pulse-docker.git/']]
+                )
+                dir('Helms') {
+					script {
+						def kubeConfigPath = getKubeConfigPath(env.DEV_CLUSTER_NAME)
+						installSecrets(env.DEV_CLUSTER_NAME, kubeConfigPath)
+                        installHelmCharts(env.DEV_CLUSTER_NAME, kubeConfigPath)
+                    }
+                }
+
+            }
+        }
+
+        stage('Check ENV') {
+			steps {
+				sh 'echo $KUBECONFIG'
+                sh 'echo $DEV_CLUSTER_NAME'
+                sh 'echo $PATH'
+            }
+        }
+
+        stage('Pulse Basic Data Setup') {
+			when { expression { params.PULSEDATASETUP == 'all' } }
+            steps {
+				script {
+					def jmeterCommand = "jmeter -n -t ${params.PULSE_DATA_SETUP} -l /home/irisrduser/results.jtl -e -o /home/irisrduser/results"
+                    echo "Running JMeter command: ${jmeterCommand}"
+                    sh jmeterCommand
+                }
+            }
+        }
+    }
+}

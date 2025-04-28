@@ -1,7 +1,7 @@
 package com.ca.account.manager.common.datasource;
 
-import com.ca.account.manager.common.repository.EmployeeTask;
 import com.ca.account.manager.common.interceptor.CurrentTenantIdentifierResolverImpl;
+import com.ca.account.manager.common.repository.EmployeeTask;
 import jakarta.persistence.EntityManagerFactory;
 import org.hibernate.cfg.Environment;
 import org.hibernate.context.spi.CurrentTenantIdentifierResolver;
@@ -45,7 +45,7 @@ public class TenantDataSourceConfig {
     @Bean(name = "tenantEntityManagerFactory")
     @ConditionalOnBean(name = "multiTenantConnectionProvider")
     public LocalContainerEntityManagerFactoryBean tenantEntityManagerFactory(@Qualifier("multiTenantConnectionProvider") MultiTenantConnectionProvider connectionProvider,
-            @Qualifier("currentTenantIdentifierResolver")CurrentTenantIdentifierResolver currentTenantIdentifierResolver) {
+                                                                             @Qualifier("currentTenantIdentifierResolver") CurrentTenantIdentifierResolver currentTenantIdentifierResolver) {
 
         LocalContainerEntityManagerFactoryBean localContainerEntityManagerFactoryBean = new LocalContainerEntityManagerFactoryBean();
         localContainerEntityManagerFactoryBean.setJpaVendorAdapter(new HibernateJpaVendorAdapter());

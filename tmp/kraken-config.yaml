@@ -1,0 +1,18 @@
+---
+# kraken-config.yaml (ConfigMap)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: krakend-config
+data:
+  krakend.yaml: |  # KrakenD configuration file
+    version: 3
+    endpoints:
+      - endpoint: "/users/{id}"
+        backend:
+          - url_pattern: "/users/{id}"
+            host: [ "http://user-service" ]  # Your backend service
+      - endpoint: "/products"
+        backend:
+          - url_pattern: "/products"
+            host: [ "http://product-service" ]  # Another backend service

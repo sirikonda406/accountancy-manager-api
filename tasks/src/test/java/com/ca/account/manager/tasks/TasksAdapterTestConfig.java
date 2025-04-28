@@ -14,12 +14,12 @@ import javax.sql.DataSource;
 })
 public class TasksAdapterTestConfig {
 
-   @MockBean
-   private DataSource indexDataSource;
+    @MockBean
+    private DataSource indexDataSource;
 
-   @MockBean
-   private ModelMapper modelMapper;
+    @MockBean
+    private ModelMapper modelMapper;
 
-   @MockBean
-   private IndexDatabaseRepository indexDatabaseRepository;
+    @MockBean
+    private IndexDatabaseRepository indexDatabaseRepository;
 }

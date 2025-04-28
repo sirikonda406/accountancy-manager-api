@@ -5,7 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.DirtiesContext;
 
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
-public abstract class BaseDatabaseRepositoryTest extends DatabaseContainerConfiguration{
+public abstract class BaseDatabaseRepositoryTest extends DatabaseContainerConfiguration {
 
     @Autowired
     private EmployeeTaskRepository employeeTaskRepository;

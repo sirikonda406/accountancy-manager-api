@@ -1,7 +1,9 @@
 services:
   keycloak:
-    image: quay.io/keycloak/keycloak:latest
+    image: keycloak-extended-tmp:26.2.0
     container_name: keycloak
+    networks:
+      - accountant
     environment:
       KC_DB: postgres
       KC_DB_URL_HOST: postgresql
@@ -13,19 +15,13 @@ services:
       KC_HOSTNAME_PORT: 8080
       KC_HOSTNAME_STRICT: false
       KC_HOSTNAME_STRICT_HTTPS: false
-      KC_LOG_LEVEL: info
+      KC_LOG_LEVEL: debug
       KC_METRICS_ENABLED: true
       KC_HEALTH_ENABLED: true
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
-    command: start-dev --import-realm
-    depends_on:
-      - postgresql
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    command: start-dev
     ports:
       - "8080:8080"
-    networks:
-      - accountant
     healthcheck:
       test: [ "CMD", "curl", "--fail", "http://keycloak:8080/realms/accountant" ]
-    volumes:
-      - ./default-realm.json:/opt/keycloak/data/import/default-realm.json

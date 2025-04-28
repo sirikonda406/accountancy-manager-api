@@ -1,0 +1,20 @@
+version: "3.9"
+services:
+  keycloak:
+    extends:
+      service: keycloak
+      file: keycloak/docker-compose-keycloak-extended.yaml
+
+  postgresql:
+    extends:
+      service: postgresql
+      file: postgres/docker-compose-postgres.yaml
+
+  krakend:
+    extends:
+      service: krakend
+      file: kraken/docker-compose-kraken.yaml
+
+networks:
+  accountant:
+    driver: bridge

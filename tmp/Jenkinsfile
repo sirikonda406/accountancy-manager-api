@@ -1,0 +1,582 @@
+import groovy.lang.Closure
+import groovy.json.JsonSlurperClassic
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
+import groovy.transform.Field
+@Field static BuildSteps = [:]
+
+
+pipeline {
+	agent {label "QA-Pulse1"}
+    parameters {
+		separator(name: '.Separator_Pulse', sectionHeader: 'QA Pulse Testing')
+		choice(name: 'urls', choices: ['','https://pulse-dev-01.irisrd.com', 'https://pulse-dev-02.irisrd.com', 'https://pulse-dev-03.irisrd.com', 'https://pulse-dev-04.irisrd.com', 'https://pulse-dev-05.irisrd.com', 'https://pulse-dev-06.irisrd.com', 'https://pulse-dev-07.irisrd.com', 'https://pulse-dev-08.irisrd.com', 'https://pulse-dev-09.irisrd.com', 'https://pulse-dev-10.irisrd.com', 'https://exp-azure-qa.irisrd.com', 'https://exp-azure-dev.irisrd.com'], description: 'Pulse URL')
+		string(name: 'Pulse_Version', defaultValue: 'Missing version', description: 'Add IRISPulse Version')
+		string(name: 'Custom_URL', defaultValue: 'Custom_URL', description: 'Custom URL if its not in the list above')
+		separator(name: '.Separator_Tests', sectionHeader: 'QA Tests')
+		separator(name: '.Separator_Tests', sectionHeader: 'API Tests')
+		booleanParam(name: 'API_TMS_Shop_Tests', defaultValue: true, description: 'Run API TMS Tests')
+		choice (name: 'API_TMS_Shop_Tests_with_negative_testing?', choices: ['Yes','No'], description: 'Yes or No')
+		booleanParam(name: 'API_TMS_Organization_Tests', defaultValue: true, description: 'Run API TMS Tests')
+		choice (name: 'API_TMS_Organization_Tests_with_negative_testing?', choices: ['Yes','No'], description: 'Yes or No')
+		booleanParam(name: 'API_TMS_Tenant_Tests', defaultValue: true, description: 'Run API TMS Tests')
+		choice (name: 'API_TMS_Tenant_Tests_with_negative_testing?', choices: ['Yes','No'], description: 'Yes or No')
+		booleanParam(name: 'API_TMS_Groups_Tests', defaultValue: true, description: 'Run API TMS Tests')
+		choice (name: 'API_TMS_Groups_Tests_with_negative_testing?', choices: ['Yes','No'], description: 'Yes or No')
+		booleanParam(name: 'API_TMS_Users_Tests', defaultValue: true, description: 'Run API TMS Tests')
+		choice (name: 'API_TMS_Users_Tests_with_negative_testing?', choices: ['Yes','No'], description: 'Yes or No')
+		booleanParam(name: 'API_TMS_Login_Tests', defaultValue: true, description: 'Run API TMS Tests')
+		choice (name: 'API_TMS_Login_Tests_with_negative_testing?', choices: ['Yes','No'], description: 'Yes or No')
+		booleanParam(name: 'API_TMS_MFA_Tests', defaultValue: true, description: 'Run API TMS Tests')
+		choice (name: 'API_TMS_MFA_Tests_with_negative_testing?', choices: ['Yes','No'], description: 'Yes or No')
+		booleanParam(name: 'API_APSuite_Tests', defaultValue: true, description: 'Run API API APSuite Tests')
+		choice (name: 'API_TMS_APSuite_Tests_with_negative_testing?', choices: ['Yes','No'], description: 'Yes or No')
+		separator(name: '.Separator_Tests', sectionHeader: 'UI Tests')
+		booleanParam(name: 'UI_TMS_Shop_Tests', defaultValue: true, description: 'Run UI TMS Tests')
+		choice (name: 'UI_TMS_Shop_Tests_with_negative_testing?', choices: ['Yes','No'], description: 'Yes or No')
+		booleanParam(name: 'UI_TMS_Organization_Tests', defaultValue: true, description: 'Run UI TMS Tests')
+		choice (name: 'UI_TMS_Organization_Tests_with_negative_testing?', choices: ['Yes','No'], description: 'Yes or No')
+		booleanParam(name: 'UI_TMS_Tenant_Tests', defaultValue: true, description: 'Run UI TMS Tests')
+		choice (name: 'UI_TMS_Tenant_Tests_with_negative_testing?', choices: ['Yes','No'], description: 'Yes or No')
+		booleanParam(name: 'UI_TMS_Groups_Tests', defaultValue: true, description: 'Run UI TMS Tests')
+		choice (name: 'UI_TMS_Groups_Tests_with_negative_testing?', choices: ['Yes','No'], description: 'Yes or No')
+		booleanParam(name: 'UI_TMS_Users_Tests', defaultValue: true, description: 'Run UI TMS Tests')
+		choice (name: 'UI_TMS_Users_Tests_with_negative_testing?', choices: ['Yes','No'], description: 'Yes or No')
+		booleanParam(name: 'UI_TMS_Login_Tests', defaultValue: true, description: 'Run UI TMS Tests')
+		choice (name: 'UI_TMS_Login_Tests_with_negative_testing?', choices: ['Yes','No'], description: 'Yes or No')
+		booleanParam(name: 'UI_APSuite_Tests', defaultValue: true, description: 'Run APSuite Tests')
+		choice (name: 'UI_TMS_APSuite_Tests_with_negative_testing?', choices: ['Yes','No'], description: 'Yes or No')
+		booleanParam(name: 'UI_APSuite_US_Tests', defaultValue: true, description: 'Run APSuite Tests')
+		choice (name: 'UI_TMS_APSuite_US_Tests_with_negative_testing?', choices: ['Yes','No'], description: 'Yes or No')
+		booleanParam(name: 'UI_Licensing_Tests', defaultValue: true, description: 'Run APSuite Tests')
+		choice (name: 'UI_Licensing_Tests_with_negative_testing?', choices: ['Yes','No'], description: 'Yes or No')
+		separator(name: '.Separator_Tests', sectionHeader: 'Other Tests')
+		choice(name: 'Run_Standalone_Script', choices: ['', 'UI', 'API'], description: 'Run single script from UI or API?')
+		string(name: 'Single_Script_name', defaultValue: 'scriptname.py', description: 'Script name that you wish to run')
+		separator(name: '.Separator_Pulse', sectionHeader: 'QA E-mail')
+		booleanParam(name: 'IRISMonitoring_Email_report', defaultValue: true, description: 'send email report to IRISMonitoring email group')
+		string(name: 'Email_List', defaultValue: 'marco.anderson@iriscorporate.com; olivier.minschaert@iriscorporate.com; chris.kierspel@iriscorporate.com; sven.hundstein@iriscorporate.com; emilien.bavay@iriscorporate.com; gregory.frerot@iriscorporate.com; mohamed.allala@iriscorporate.com; marcel.rosenbaum@iriscorporate.com', description: 'Add email address to send report')
+        }
+    stages {
+		stage ('Download scripts from Git') {
+			steps {
+				script {
+					try {
+						print "Download Cleanup and Converter files"
+                            checkout([$class: 'GitSCM',
+                                branches: [[name: "Pulse_dev"]],
+                                doGenerateSubmoduleConfigurations: false,
+                                extensions: [[$class: 'SparseCheckoutPaths',
+                                              sparseCheckoutPaths: [[path: 'converter.py'], [path: 'cleanup.py']]]],
+                                userRemoteConfigs: [[credentialsId: 'Jenkins_Git_user',
+                                                     url: "https://git3.irisxtract.com/git/qa-pulse-scripts.git"]]
+                            ])
+                                print "Start cleaning folder"
+                                bat "py -u cleanup.py"
+                                success_build()
+                            } catch(Exception ex){ result_log(ex) }
+
+                        try {
+						print "Download UI Test Scripts from Git"
+							job_run = currentBuild.displayName
+							currentBuild.displayName = params.urls.toString() + params.Pulse_Version.toString() + currentBuild.displayName
+							dir('PulseUI_dev') {
+							checkout([$class: 'GitSCM',
+                                branches: [[name: "PulseUI_dev"]],
+                                doGenerateSubmoduleConfigurations: false,
+                                extensions: [[$class: 'CloneOption', depth: 1, noTags: false, reference: '', shallow: true, timeout: 120]],
+                                submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'Jenkins_Git_user', url: "https://git3.irisxtract.com/git/qa-pulse-scripts.git"]]
+                            ])
+							}
+							success_build()
+                        }catch(Exception ex){result_log(ex)}
+						try {
+						print "Download API Test Scripts from Git"
+							dir('PulseAPIdev') {
+							checkout([$class: 'GitSCM',
+                                branches: [[name: "PulseAPIdev"]],
+                                doGenerateSubmoduleConfigurations: false,
+                                extensions: [[$class: 'CloneOption', depth: 1, noTags: false, reference: '', shallow: true, timeout: 120]],
+                                submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'Jenkins_Git_user', url: "https://git3.irisxtract.com/git/qa-pulse-scripts.git"]]
+                            ])
+							}
+							success_build()
+                        }catch(Exception ex){result_log(ex)}
+                    }
+                }
+        }
+        stage("API TMS Shop Tests") {
+			when { expression { return params.API_TMS_Shop_Tests.toString()=='true' } }
+            steps {
+				script {
+					try{
+						print "Executing API TMS Shop Tests"
+						bat "pytest ./PulseAPIdev/Tests/test_tms_shop.py --run_id ${currentBuild.number} --base_url ${url_address()} --kusername keycloak --kpswd ${keycloakUserPassword(url_address())} --user_name ${superUserName()} --password ${superUserPassword(url_address())} ${negative_test_trigger(params.'API_TMS_Shop_Tests_with_negative_testing?')}--excelreport=API_TMS_Shop_report.xlsx"
+
+						success_build()
+                        }catch(Exception ex){result_log(ex)}
+                    }
+				}
+       }
+		stage("API TMS Organization Tests") {
+			when { expression { return params.API_TMS_Organization_Tests.toString()=='true' } }
+            steps {
+				script {
+					try{
+						print "Executing API TMS organization Tests"
+						bat "pytest ./PulseAPIdev/Tests/test_tms_organization.py --run_id ${currentBuild.number} --base_url ${url_address()} --kusername keycloak --kpswd ${keycloakUserPassword(url_address())} --user_name ${superUserName()} --password ${superUserPassword(url_address())} ${negative_test_trigger(params.'API_TMS_Organization_Tests_with_negative_testing?')}--excelreport=API_TMS_Organization_report.xlsx"
+						success_build()
+                        }catch(Exception ex){result_log(ex)}
+                    }
+				}
+       }
+	   stage("API TMS Tenant Tests") {
+			when { expression { return params.API_TMS_Tenant_Tests.toString()=='true' } }
+            steps {
+				script {
+					try{
+						print "Executing API TMS Tenant Tests"
+						bat "pytest ./PulseAPIdev/Tests/test_tms_tenant.py --run_id ${currentBuild.number} --base_url ${url_address()} --kusername keycloak --kpswd ${keycloakUserPassword(url_address())} --user_name ${superUserName()} --password ${superUserPassword(url_address())} ${negative_test_trigger(params.'API_TMS_Tenant_Tests_with_negative_testing?')}--excelreport=API_TMS_Tenant_report.xlsx"
+						success_build()
+                        }catch(Exception ex){result_log(ex)}
+                    }
+				}
+       }
+	   stage("API TMS Groups Tests") {
+			when { expression { return params.API_TMS_Groups_Tests.toString()=='true' } }
+            steps {
+				script {
+					try{
+						print "Executing API TMS Groups Tests"
+						bat "pytest ./PulseAPIdev/Tests/test_tms_groups.py --run_id ${currentBuild.number} --base_url ${url_address()} --kusername keycloak --kpswd ${keycloakUserPassword(url_address())} --user_name ${superUserName()} --password ${superUserPassword(url_address())} ${negative_test_trigger(params.'API_TMS_Groups_Tests_with_negative_testing?')}--excelreport=API_TMS_Groups_report.xlsx"
+						success_build()
+                        }catch(Exception ex){result_log(ex)}
+                    }
+				}
+       }
+	   stage("API TMS Users Tests") {
+			when { expression { return params.API_TMS_Users_Tests.toString()=='true' } }
+            steps {
+				script {
+					try{
+						print "Executing API TMS Users Tests"
+						bat "pytest ./PulseAPIdev/Tests/test_tms_users.py --run_id ${currentBuild.number} --base_url ${url_address()} --kusername keycloak --kpswd ${keycloakUserPassword(url_address())} --user_name ${superUserName()} --password ${superUserPassword(url_address())} ${negative_test_trigger(params.'API_TMS_Users_Tests_with_negative_testing?')}--excelreport=API_TMS_Users_report.xlsx"
+						success_build()
+                        }catch(Exception ex){result_log(ex)}
+                    }
+				}
+       }
+	   stage("API TMS Login Tests") {
+			when { expression { return params.API_TMS_Login_Tests.toString()=='true' } }
+            steps {
+				script {
+					try{
+						print "Executing API TMS Login Tests"
+						bat "pytest ./PulseAPIdev/Tests/test_tms_login.py --run_id ${currentBuild.number} --base_url ${url_address()} --kusername keycloak --kpswd ${keycloakUserPassword(url_address())} --user_name ${superUserName()} --password ${superUserPassword(url_address())} ${negative_test_trigger(params.'API_TMS_Login_Tests_with_negative_testing?')}--excelreport=API_TMS_Login_report.xlsx"
+						success_build()
+                        }catch(Exception ex){result_log(ex)}
+                    }
+				}
+       }
+	   stage("API TMS MFA Tests") {
+			when { expression { return params.API_TMS_MFA_Tests.toString()=='true' } }
+            steps {
+				script {
+					try{
+						print "Executing API TMS MFA Tests"
+						bat "pytest ./PulseAPIdev/Tests/test_tms_Multi_factor_authentication.py --run_id ${currentBuild.number} --base_url ${url_address()} --kusername keycloak --kpswd ${keycloakUserPassword(url_address())} --user_name ${superUserName()} --password ${superUserPassword(url_address())} ${negative_test_trigger(params.'API_TMS_MFA_Tests_with_negative_testing?')}--excelreport=API_TMS_MFA_report.xlsx"
+						success_build()
+                        }catch(Exception ex){result_log(ex)}
+                    }
+				}
+       }
+
+		stage("API APSuite Test") {
+			when { expression { return params.API_APSuite_Tests.toString()=='true' } }
+            steps {
+				script{
+					try{
+						print "Executing API APSuite Tests"
+					bat "pytest ./PulseAPIdev/Tests/test_apsuite_install.py ./PulseAPIdev/Tests/test_apsuite_masterdata.py ./PulseAPIdev/Tests/test_apsuite_settings.py ./PulseAPIdev/Tests/test_apsuite_invoice.py --run_id ${currentBuild.number} --base_url ${url_address()} --kusername keycloak --kpswd ${keycloakUserPassword(url_address())} --user_name ${superUserName()} --password ${superUserPassword(url_address())} ${negative_test_trigger(params.'API_TMS_APSuite_Tests_with_negative_testing?')}--excelreport=API_TMS_APSuite_report.xlsx"
+					success_build()
+                    }catch(Exception ex){result_log(ex)}
+               }
+            }
+        }
+
+		stage("UI TMS Shop Test") {
+			when { expression { return params.UI_TMS_Shop_Tests.toString()=='true' } }
+            steps {
+				script{
+					try{
+						print "Executing UI TMS Shop Tests"
+					bat "pytest ./PulseUI_dev/tests/test_shop.py --run_id ${currentBuild.number} --base_url ${url_address()} --kusername keycloak --kpswd ${keycloakUserPassword(url_address())} --user_name ${superUserName()} --password ${superUserPassword(url_address())} ${negative_test_trigger(params.'UI_TMS_Shop_Tests_with_negative_testing?')}--excelreport=UI_TMS_shop_report.xlsx"
+					success_build()
+                    }catch(Exception ex){result_log(ex)}
+               }
+            }
+        }
+		stage("UI TMS Organization Test") {
+			when { expression { return params.UI_TMS_Organization_Tests.toString()=='true' } }
+            steps {
+				script{
+					try{
+						print "Executing UI TMS Organization Tests"
+					bat "pytest ./PulseUI_dev/tests/test_organization.py --run_id ${currentBuild.number} --base_url ${url_address()} --kusername keycloak --kpswd ${keycloakUserPassword(url_address())} --user_name ${superUserName()} --password ${superUserPassword(url_address())} ${negative_test_trigger(params.'UI_TMS_Organization_Tests_with_negative_testing?')}--excelreport=UI_TMS_organization_report.xlsx"
+					success_build()
+                    }catch(Exception ex){result_log(ex)}
+               }
+            }
+        }
+		stage("UI TMS Tenant Test") {
+			when { expression { return params.UI_TMS_Tenant_Tests.toString()=='true' } }
+            steps {
+				script{
+					try{
+						print "Executing UI TMS Tenant Tests"
+					bat "pytest ./PulseUI_dev/tests/test_tenant.py --run_id ${currentBuild.number} --base_url ${url_address()} --kusername keycloak --kpswd ${keycloakUserPassword(url_address())} --user_name ${superUserName()} --password ${superUserPassword(url_address())} ${negative_test_trigger(params.'UI_TMS_Tenant_Tests_with_negative_testing?')}--excelreport=UI_TMS_tenant_report.xlsx"
+					success_build()
+                    }catch(Exception ex){result_log(ex)}
+               }
+            }
+        }
+		stage("UI TMS Groups Test") {
+			when { expression { return params.UI_TMS_Groups_Tests.toString()=='true' } }
+            steps {
+				script{
+					try{
+						print "Executing UI TMS Groups Tests"
+					bat "pytest ./PulseUI_dev/tests/test_groups.py --run_id ${currentBuild.number} --base_url ${url_address()} --kusername keycloak --kpswd ${keycloakUserPassword(url_address())} --user_name ${superUserName()} --password ${superUserPassword(url_address())} ${negative_test_trigger(params.'UI_TMS_Groups_Tests_with_negative_testing?')}--excelreport=UI_TMS_groups_report.xlsx"
+					success_build()
+                    }catch(Exception ex){result_log(ex)}
+               }
+            }
+        }
+		stage("UI TMS Users Test") {
+			when { expression { return params.UI_TMS_Users_Tests.toString()=='true' } }
+            steps {
+				script{
+					try{
+						print "Executing UI TMS Users Tests"
+					bat "pytest ./PulseUI_dev/tests/test_users.py --run_id ${currentBuild.number} --base_url ${url_address()} --kusername keycloak --kpswd ${keycloakUserPassword(url_address())} --user_name ${superUserName()} --password ${superUserPassword(url_address())} ${negative_test_trigger(params.'UI_TMS_Users_Tests_with_negative_testing?')}--excelreport=UI_TMS_users_report.xlsx"
+					success_build()
+                    }catch(Exception ex){result_log(ex)}
+               }
+            }
+        }
+		stage("UI Login Test") {
+			when { expression { return params.UI_TMS_Login_Tests.toString()=='true' } }
+            steps {
+				script{
+					try{
+						print "Executing UI TMS Login Tests"
+					bat "pytest ./PulseUI_dev/tests/test_login.py --run_id ${currentBuild.number} --base_url ${url_address()} --kusername keycloak --kpswd ${keycloakUserPassword(url_address())} --user_name ${superUserName()} --password ${superUserPassword(url_address())} ${negative_test_trigger(params.'UI_TMS_Login_Tests_with_negative_testing?')}--excelreport=UI_TMS_login_report.xlsx"
+					success_build()
+                    }catch(Exception ex){result_log(ex)}
+               }
+            }
+        }
+		stage("UI APSuite Test") {
+			when { expression { return params.UI_APSuite_Tests.toString()=='true' } }
+            steps {
+				script{
+					try{
+						print "Executing UI APSuite Tests"
+					bat "pytest ./PulseUI_dev/tests/test_apsuite.py --run_id ${currentBuild.number} --base_url ${url_address()} --kusername keycloak --kpswd ${keycloakUserPassword(url_address())} --user_name ${superUserName()} --password ${superUserPassword(url_address())} ${negative_test_trigger(params.'UI_TMS_APSuite_Tests_with_negative_testing?')}--excelreport=UI_TMS_APSuite_report.xlsx"
+					success_build()
+                    }catch(Exception ex){result_log(ex)}
+               }
+            }
+        }
+		stage("UI APSuite US Test") {
+			when { expression { return params.UI_APSuite_US_Tests.toString()=='true' } }
+            steps {
+				script{
+					try{
+						print "Executing UI APSuite Tests"
+					bat "pytest ./PulseUI_dev/tests/test_apsuite_us.py --run_id ${currentBuild.number} --base_url ${url_address()} --kusername keycloak --kpswd ${keycloakUserPassword(url_address())} --user_name ${superUserName()} --password ${superUserPassword(url_address())} ${negative_test_trigger(params.'UI_TMS_APSuite_US_Tests_with_negative_testing?')}--excelreport=UI_TMS_APSuite_US_report.xlsx"
+					success_build()
+                    }catch(Exception ex){result_log(ex)}
+               }
+            }
+        }
+		stage("UI Licensing Test") {
+			when { expression { return params.UI_Licensing_Tests.toString()=='true' } }
+            steps {
+				script{
+					try{
+						print "Executing UI APSuite Tests"
+					bat "pytest ./PulseUI_dev/tests/test_licensing.py --run_id ${currentBuild.number} --base_url ${url_address()} --kusername keycloak --kpswd ${keycloakUserPassword(url_address())} --user_name ${superUserName()} --password ${superUserPassword(url_address())} ${negative_test_trigger(params.'UI_Licensing_Tests_with_negative_testing?')}--excelreport=UI_Licensing_report.xlsx"
+					success_build()
+                    }catch(Exception ex){result_log(ex)}
+               }
+            }
+        }
+		stage("Standalone script") {
+			when { expression { return params.Run_Standalone_Script.toString()=='UI' || params.Run_Standalone_Script.toString()=='API'} }
+            steps {
+				script{
+					try{
+						print "Executing Standalone Test"
+					print params.Single_Script_name.toString()
+					success_build()
+                    }catch(Exception ex){result_log(ex)}
+               }
+            }
+        }
+    }
+	post {
+		always {
+			junit allowEmptyResults: true, testResults: '**/Pulse_Testing/junit_report/*.xml'
+           script{
+				success_color()
+					bat "py -u converter.py"
+					def strBody = ""
+					def strStatusColor = ( result_color )
+					def strStageStyle = " style='width: 15%; text-align: center;'"
+					def strStepStyle = " style='width: 20%; text-align: center;'"
+					def strStatusStyle = " style='width: 15%; text-align: center;'"
+					def strDescriptionHeaderStyle = " style='width: 50%; text-align: center;'"
+					def strDescriptionStyle = " style='width: 50%;'"
+					strBody += "<h2>Summary</h2>\n"
+					strBody += "<h3>Pulse Tag: " +currentBuild.displayName+ "</h3>\n"
+					strBody += "<a href=${BUILD_URL}consoleFull><font size=+2><strong>Complete log</strong></font></a>"
+
+					strBody += "<h2>Pipeline</h2>\n"
+					strBody += "<table style='border-collapse: collapse; width: 70%;' border='1'>\n"
+					strBody += "<tbody>\n"
+					strBody += "<tr><th${strStageStyle}>Stage</th><th${strStageStyle}>Result</th></tr>\n"
+
+
+					BuildSteps.each
+					{ strStageName, strResult ->
+					// Pipeline
+
+					strBody += "<tr><th${strStageStyle}>${strStageName}</th><th${strStageStyle}>${strResult}</th></tr>\n"
+					//strBody += "${strStageName} => ${strResult}\n"
+					}
+
+					strBody += "</tbody>\n"
+					strBody += "</table>\n"
+
+					//strBody += "<h2>Test Reports:</h2>\n"
+					if (params.API_TMS_Shop_Tests.toString()=='true') {
+					strBody += '<h2><u>API TMS Shop Test Report</u></h2>\n'
+					strBody += '${FILE,path="./API_TMS_Shop_report.html"}\n';
+					}
+
+					if (params.API_TMS_Organization_Tests.toString()=='true') {
+					strBody += '<h2><u>API TMS Organization Test Report</u></h2>\n'
+					strBody += '${FILE,path="./API_TMS_Organization_report.html"}\n';
+					}
+
+
+					if (params.API_TMS_Tenant_Tests.toString()=='true') {
+					strBody += '<h2><u>API TMS Tenant Test Report</u></h2>\n'
+					strBody += '${FILE,path="./API_TMS_Tenant_report.html"}\n';
+					}
+
+
+					if (params.API_TMS_Groups_Tests.toString()=='true') {
+					strBody += '<h2><u>API TMS Groups Test Report</u></h2>\n'
+					strBody += '${FILE,path="./API_TMS_Groups_report.html"}\n';
+					}
+
+
+					if (params.API_TMS_Users_Tests.toString()=='true') {
+					strBody += '<h2><u>API TMS Users Test Report</u></h2>\n'
+					strBody += '${FILE,path="./API_TMS_Users_report.html"}\n';
+					}
+
+
+					if (params.API_TMS_Login_Tests.toString()=='true') {
+					strBody += '<h2><u>API TMS Login Test Report</u></h2>\n'
+					strBody += '${FILE,path="./API_TMS_Login_report.html"}\n';
+					}
+
+
+					if (params.API_TMS_MFA_Tests.toString()=='true') {
+					strBody += '<h2><u>API TMS MFA Test Report</u></h2>\n'
+					strBody += '${FILE,path="./API_TMS_MFA_report.html"}\n';
+					}
+
+
+					if (params.API_APSuite_Tests.toString()=='true') {
+					strBody += '<h2><u>API TMS APSuite Test Report</u></h2>\n'
+					strBody += '${FILE,path="./API_TMS_APSuite_report.html"}\n';
+					}
+
+
+					if (params.UI_TMS_Shop_Tests.toString()=='true') {
+					strBody += '<h2><u>UI TMS Shop Test Report</u></h2>\n'
+					strBody += '${FILE,path="./UI_TMS_shop_report.html"}\n';
+					}
+
+
+					if (params.UI_TMS_Organization_Tests.toString()=='true') {
+					strBody += '<h2><u>UI TMS organization Test Report</u></h2>\n'
+					strBody += '${FILE,path="./UI_TMS_organization_report.html"}\n';
+					}
+
+					if (params.UI_TMS_Tenant_Tests.toString()=='true') {
+					strBody += '<h2><u>UI TMS Tenant Test Report</u></h2>\n'
+					strBody += '${FILE,path="./UI_TMS_tenant_report.html"}\n';
+					}
+
+
+					if (params.UI_TMS_Groups_Tests.toString()=='true') {
+					strBody += '<h2><u>UI TMS groups Test Report</u></h2>\n'
+					strBody += '${FILE,path="./UI_TMS_groups_report.html"}\n';
+					}
+
+
+					if (params.UI_TMS_Users_Tests.toString()=='true') {
+					strBody += '<h2><u>UI TMS users Test Report</u></h2>\n'
+					strBody += '${FILE,path="./UI_TMS_users_report.html"}\n';
+					}
+
+
+					if (params.UI_TMS_Login_Tests.toString()=='true') {
+					strBody += '<h2><u>UI TMS Login Test Report</u></h2>\n'
+					strBody += '${FILE,path="./UI_TMS_login_report.html"}\n';
+					}
+
+
+					if ( params.UI_APSuite_Tests.toString()=='true') {
+					strBody += '<h2><u>UI APSuite Test Report</u></h2>\n'
+					strBody += '${FILE,path="./UI_TMS_APSuite_report.html"}\n';
+					}
+					
+					if ( params.UI_APSuite_US_Tests.toString()=='true') {
+					strBody += '<h2><u>UI APSuite US Test Report</u></h2>\n'
+					strBody += '${FILE,path="./UI_TMS_APSuite_US_report.html"}\n';
+					}
+
+					if ( params.UI_Licensing_Tests.toString()=='true') {
+					strBody += '<h2><u>UI Licensing Test Report</u></h2>\n'
+					strBody += '${FILE,path="./UI_Licensing_report.html"}\n';
+					}
+
+
+					emailext mimeType: 'text/html', body:strBody,subject : "Pulse Env: " + url_address() + " - Pulse Tag: "+ currentBuild.displayName, to: email_address()
+
+				}
+			}
+		}
+	}
+
+
+def success_color(){
+	if (currentBuild.result == 'SUCCESS') {
+		result_color = '008000'
+    }else                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+    if (currentBuild.result == 'ABORTED'){
+		result_color = 'FFA500'
+    }else{result_color = 'ff0000'
+  }
+}
+    
+def url_address() {
+	def pulse_url
+    if (params.urls.toString() == '') {
+		println "No value found using ${params.Custom_URL.toString()}"
+        pulse_url = params.Custom_URL.toString()
+    } else {
+		pulse_url = params.urls.toString()
+        println "Value found: ${params.urls.toString()}"
+    }
+    return pulse_url
+}
+
+def email_address() {
+	def emailing
+	if (params.IRISMonitoring_Email_report.toString() == 'true') {
+		println "Email will be sent to IRISMonitoring"
+		emailing = params.Email_List + ';IRISMonitoring-PulseDevelopment@CANONEUROPENV.onmicrosoft.com'
+	} else {
+		println "No email will be sent to IRISMonitoring"
+		emailing = params.Email_List
+	}
+	return emailing
+}
+    
+def String helmsBranch() {
+	String chosenValue = filterNullValue(params.Nawan_Branch)
+    if (chosenValue=="") {
+		return "master";
+    } else {
+		return chosenValue;
+    }
+}
+    
+    
+def String filterNullValue(testValue) {
+	String chosenValue = "${testValue}"
+    if ( chosenValue=="null" ) {
+		return "";
+    } else {
+		return chosenValue;
+    }
+}
+
+
+
+def result_log (ex){
+	print ex
+    //sh "exit 1"
+    result_check = ex.toString()
+    if (result_check.contains('FlowInterruptedException')) {
+		catchError(buildResult: 'FAILURE', stageResult: 'ABORTED') {
+			BuildSteps[env.STAGE_NAME] = "<span style='color: #FFA500;'><strong>ABORTED</strong></span>"
+        //sh "exit 1"
+        }
+        }else{
+		catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+			BuildSteps[env.STAGE_NAME] = "<span style='color: #cc8408;'><strong>UNSTABLE</strong></span>"
+        //sh "exit 1"
+		error 'FAIL'
+        }
+    }
+}
+
+def success_build(){
+	BuildSteps[env.STAGE_NAME] = "<span style='color: #008000;'><strong>SUCCESS</strong></span>"
+}
+
+
+def String superUserPassword(String EnvironmentName)
+{
+	String envnameValue = filterNullValue(EnvironmentName)
+    if (envnameValue=="exp-azure-qa.irisrd.com") {
+		return "siriuqca_tms"
+    } else if (envnameValue=="exp-azure-dev.irisrd.com") {
+		return "siriuqca_tms"
+    } else {
+		return "iris"
+    }
+}
+
+def String keycloakUserPassword(String EnvironmentName)
+{
+	String envnameValue = filterNullValue(EnvironmentName)
+    if (envnameValue=="exp-azure-qa.irisrd.com") {
+		return "siriuqca_keycloak"
+    } else if (envnameValue=="exp-azure-dev.irisrd.com") {
+		return "siriuqca_keycloak"
+    } else {
+		return "iris"
+    }
+}
+
+def String superUserName()
+{
+	return "superuser@irisrd.com"
+}
+
+def negative_test_trigger(choice) {
+	if (choice.toString() == 'Yes') {
+		return " "
+    } else {
+		return ' -m "not negative_test" '
+    }
+}

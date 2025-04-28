@@ -1,0 +1,155 @@
+pipeline {
+
+	agent { label 'belndevlab01' }
+
+	environment {
+		DEV_CLUSTER_NAME = 'pulse-dev-01-config'
+		PATH = "/opt/jmeter/bin:${env.PATH}"
+    }
+
+    parameters {
+		choice(
+            name: 'UNINSTALL',
+            choices: ['all','chartOnly','none'],
+            description: 'Check this to uninstall all Helm charts and Persistent Volume Claims (PVCs)'
+        )
+
+        choice(
+            name: 'INSTALL',
+            choices: ['all','none'],
+            description: 'Check this to uninstall all Helm charts and Persistent Volume Claims (PVCs)'
+        )
+
+        choice(
+            name: 'PULSEDATASETUP',
+            choices: ['all','none'],
+            description: 'Check this to uninstall all Helm charts and Persistent Volume Claims (PVCs)'
+        )
+
+         string(name: 'PULSE_DATA_SETUP', defaultValue: '/opt/jmeter/bkp_pulse/IRISPulsePerformanceTesting_Unix.jmx', description: 'Absolute path to the JMeter .jmx file')
+    }
+
+    stages {
+
+		stage('Clean Workspace') {
+			when {
+				expression { params.UNINSTALL == 'all'}
+			}
+			steps {
+				cleanWs()
+            }
+        }
+
+        stage('Uninstall Helm Charts Only') {
+			when {
+				expression { params.UNINSTALL == 'chartOnly'}
+			}
+			steps {
+				script {
+					sh '''
+                        echo "echo kubec config" $KUBECONFIG
+                        echo "echo kubec config DEV_CLUSTER_NAME " $DEV_CLUSTER_NAME
+
+                        # Check if there are any releases before uninstalling
+                        if helm list -q --kubeconfig /home/irisrdadmin/.kube/$DEV_CLUSTER_NAME | grep -q .; then
+
+                            echo "Uninstalling existing Helm releases..."
+
+                            helm uninstall $(helm list -q --kubeconfig /home/irisrdadmin/.kube/$DEV_CLUSTER_NAME) --kubeconfig /home/irisrdadmin/.kube/$DEV_CLUSTER_NAME
+                        fi
+                    '''
+            	}
+            }
+
+    	}
+
+		stage('Uninstall Helm Charts and PVCs') {
+			when {
+				expression { params.UNINSTALL == 'all'}
+			}
+			steps {
+				script {
+					sh '''
+								echo "echo kubec config" $KUBECONFIG
+								echo "echo kubec config DEV_CLUSTER_NAME " $DEV_CLUSTER_NAME
+
+								echo "Remove Helm charts ===================================="
+
+								# Check if there are any releases before uninstalling
+								if helm list -q --kubeconfig /home/irisrdadmin/.kube/$DEV_CLUSTER_NAME | grep -q .; then
+
+									echo "Uninstalling All Helm charts "
+
+                           			helm uninstall $(helm list -q --kubeconfig /home/irisrdadmin/.kube/$DEV_CLUSTER_NAME) --kubeconfig /home/irisrdadmin/.kube/$DEV_CLUSTER_NAME
+
+									kubectl --kubeconfig /home/irisrdadmin/.kube/$DEV_CLUSTER_NAME delete pvc --all
+								fi
+
+								sleep 30
+
+								echo "Remove PVCs===================================="
+
+								if kubectl --kubeconfig /home/irisrdadmin/.kube/$DEV_CLUSTER_NAME get pvc | grep -q .; then
+
+									echo " Removing PVCs ..."
+
+									kubectl --kubeconfig /home/irisrdadmin/.kube/$DEV_CLUSTER_NAME delete pvc --all
+								fi
+
+								echo "Removed all Helm charts and PVC's from ====================================" $DEV_CLUSTER_NAME
+							'''
+					}
+				}
+		}
+
+		stage('Install Helm Charts') {
+			when {
+				expression { params.INSTALL == 'all'}
+			}
+			steps {
+
+				checkout scmGit(branches: [[name: '*/IPULSE-36230-upgrade-postgres-keycloak']], extensions: [], gitTool: 'Default', userRemoteConfigs: [[credentialsId: 'IRISNext_Git', url: 'https://git3.irisxtract.com/git/pulse-docker.git/']])
+
+				dir('Helms') {
+
+					script {
+						def values = ["common", "tms", "workflow", "ui", "sp", "xservices", "licensing"]
+							for (value in values) {
+							sleep 40
+								echo "helm install pulse-dev-01-$value ./irispulse-new/$value -f pulse-dev-01.irisrd.com-settings.yaml --kubeconfig /home/irisrdadmin/.kube/$DEV_CLUSTER_NAME"
+								sh "helm install pulse-dev-01-$value ./irispulse-new/$value -f pulse-dev-01.irisrd.com-settings.yaml --kubeconfig /home/irisrdadmin/.kube/$DEV_CLUSTER_NAME"
+							}
+
+						}
+					}
+
+				}
+
+			}
+
+	    stage('Check ENV') {
+			steps {
+				sh  'echo  $KUBECONFIG'
+				sh  'echo $DEV_CLUSTER_NAME'
+				sh  'echo $PATH'
+
+            }
+        }
+
+		stage('Pulse Basic Data Setup') {
+			when {
+				expression { params.PULSEDATASETUP == 'all'}
+				}
+			steps {
+			sh 'echo ================= $PATH'
+			script {
+				sh '''
+						jmeter -n -t ${PULSE_DATA_SETUP} -l /home/irisrduser/results/results.jtl -e -o /home/irisrduser/results
+					'''
+				}
+
+			}
+		}
+     }
+
+}

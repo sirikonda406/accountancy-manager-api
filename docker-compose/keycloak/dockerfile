@@ -1,69 +1,80 @@
-# Stage 1: Builder stage using full Debian Bullseye
-FROM debian:bullseye AS builder
 
-# Update package lists and install curl and the libnghttp2-14 package
+FROM registry.access.redhat.com/ubi9 AS ubi-micro-build
 
-RUN apt-get update && \
-     apt-get install -y curl libnghttp2-14 libcurl4 zlib1g librtmp-dev libssh2-1 && \
-     rm -rf /var/lib/apt/lists/*
+ARG KEYCLOAK_VERSION=999.0.0-SNAPSHOT
+ARG KEYCLOAK_DIST=https://github.com/keycloak/keycloak/releases/download/$KEYCLOAK_VERSION/keycloak-$KEYCLOAK_VERSION.tar.gz
 
-# Verify that required libraries are installed
-RUN find / -iname 'libssh2.so*'
+RUN dnf install -y tar gzip
 
+ADD $KEYCLOAK_DIST /tmp/keycloak/
 
-# Stage 2: Final image (for example, using the Keycloak image)
-FROM quay.io/keycloak/keycloak:latest
+# The next step makes it uniform for local development and upstream built.
+# If it is a local tar archive then it is unpacked, if from remote is just downloaded.
+RUN (cd /tmp/keycloak && \
+    tar -xvf /tmp/keycloak/keycloak-*.tar.gz && \
+    rm /tmp/keycloak/keycloak-*.tar.gz) || true
 
-USER root
+RUN mv /tmp/keycloak/keycloak-* /opt/keycloak && mkdir -p /opt/keycloak/data
+RUN chmod -R g+rwX /opt/keycloak
 
-# Set admin credentials
-ENV KEYCLOAK_ADMIN=admin
-ENV KEYCLOAK_ADMIN_PASSWORD=admin
-ENV KC_DB=postgres
-ENV KC_DB_URL_HOST=postgresql
-ENV KC_DB_URL_DATABASE=postgres
-ENV KC_DB_URL_PORT=5432
-ENV KC_DB_USERNAME=postgres
-ENV KC_DB_PASSWORD=postgres
-ENV KC_HOSTNAME=localhost
-ENV KC_HOSTNAME_PORT=8080
-ENV KC_HOSTNAME_STRICT=false
-ENV KC_HOSTNAME_STRICT_HTTPS=false
-ENV KC_LOG_LEVEL=info
-ENV KC_METRICS_ENABLED=true
-ENV KC_HEALTH_ENABLED=true
-ENV KEYCLOAK_ADMIN=admin
-ENV KEYCLOAK_ADMIN_PASSWORD=admin
+ADD ubi-null.sh /tmp/
+RUN bash /tmp/ubi-null.sh java-21-openjdk-headless glibc-langpack-en findutils
 
-# Expose Keycloak port
+FROM registry.access.redhat.com/ubi9-micro
+ENV LANG en_US.UTF-8
+
+# Flag for determining app is running in container
+ENV KC_RUN_IN_CONTAINER true
+
+COPY --from=ubi-micro-build /tmp/null/rootfs/ /
+COPY --from=ubi-micro-build --chown=1000:0 /opt/keycloak /opt/keycloak
+
+RUN echo "keycloak:x:0:root" >> /etc/group && \
+    echo "keycloak:x:1000:0:keycloak user:/opt/keycloak:/sbin/nologin" >> /etc/passwd
+
+USER 1000
+
 EXPOSE 8080
+EXPOSE 8443
+EXPOSE 9000
 
-# Ensure the target directory exists (adjust based on your image’s directory structure)
-# Create /lib64 if it doesn't exist (some images use /lib instead)
-RUN mkdir -p /lib64 /usr/lib64 /usr/lib
-# Copy the curl binary from the builder stage
-COPY --from=builder /usr/bin/curl /usr/bin/curl
+ENTRYPOINT [ "/opt/keycloak/bin/kc.sh" ]
 
-# Copy the required libraries from the builder stage
-COPY --from=builder /usr/lib/x86_64-linux-gnu/libcurl.so.4 /lib64/libcurl.so.4
-COPY --from=builder /usr/lib/x86_64-linux-gnu/libnghttp2.so.14 /lib64/libnghttp2.so.14
-COPY --from=builder /lib/x86_64-linux-gnu/libz.so.1 /lib64/libz.so.1
-COPY --from=builder /usr/lib/x86_64-linux-gnu/libidn2.so.0 /lib64/libidn2.so.0
-COPY --from=builder /usr/lib/x86_64-linux-gnu/libpsl.so.5 /lib64/libpsl.so.5
-COPY --from=builder /usr/lib/x86_64-linux-gnu/libssl.so.1.1 /lib64/libssl.so.1.1
-COPY --from=builder /usr/lib/x86_64-linux-gnu/libcrypto.so.1.1 /lib64/libcrypto.so.1.1
-COPY --from=builder /usr/lib/x86_64-linux-gnu/librtmp.so.1 /lib64/librtmp.so.1
-COPY --from=builder /usr/lib/x86_64-linux-gnu/libssh2.so.1 /lib64/libssh2.so.1
-COPY --from=builder /usr/lib/x86_64-linux-gnu/libidn2.so.0 /lib64/libidn2.so.0
-COPY --from=builder /usr/lib/x86_64-linux-gnu/libpsl.so.5 /lib64/libpsl.so.5
-COPY --from=builder /usr/lib/x86_64-linux-gnu/libssl.so.1.1 /lib64/libssl.so.1.1
-COPY --from=builder /usr/lib/x86_64-linux-gnu/libcrypto.so.1.1 /lib64/libcrypto.so.1.1
+# common labels
+ARG KEYCLOAK_VERSION
+ARG KEYCLOAK_URL="https://www.keycloak.org/"
+ARG KEYCLOAK_TAGS="keycloak security identity"
+ARG KEYCLOAK_MAINTAINER=${KEYCLOAK_URL}
+ARG KEYCLOAK_VENDOR=${KEYCLOAK_MAINTAINER}
 
+LABEL maintainer=${KEYCLOAK_MAINTAINER} \
+      vendor=${KEYCLOAK_VENDOR} \
+      version=${KEYCLOAK_VERSION} \
+      url=${KEYCLOAK_URL} \
+      io.openshift.tags=${KEYCLOAK_TAGS} \
+      release="" \
+      vcs-ref="" \
+      com.redhat.build-host="" \
+      com.redhat.component="" \
+      com.redhat.license_terms=""
 
-# (Optional) Update the dynamic linker cache, if available in your final image
-RUN ldconfig || true
+# server specific
+ARG KEYCLOAK_SERVER_DISPLAY_NAME="Keycloak Server"
+ARG KEYCLOAK_SERVER_IMAGE_NAME="keycloak"
+ARG KEYCLOAK_SERVER_DESCRIPTION="${KEYCLOAK_SERVER_DISPLAY_NAME} Image"
 
-ENV LD_LIBRARY_PATH=/lib64:$LD_LIBRARY_PATH
+LABEL name=${KEYCLOAK_SERVER_IMAGE_NAME} \
+      description=${KEYCLOAK_SERVER_DESCRIPTION} \
+      summary=${KEYCLOAK_SERVER_DESCRIPTION} \
+      io.k8s.display-name=${KEYCLOAK_SERVER_DISPLAY_NAME} \
+      io.k8s.description=${KEYCLOAK_SERVER_DESCRIPTION}
 
-# Run Keycloak in development mode
-ENTRYPOINT ["/opt/keycloak/bin/kc.sh", "start-dev"]
+# oci
+ARG KEYCLOAK_SOURCE="https://github.com/keycloak/keycloak"
+ARG KEYCLOAK_DOCS=${KEYCLOAK_URL}documentation
+
+LABEL org.opencontainers.image.title=${KEYCLOAK_SERVER_DISPLAY_NAME} \
+      org.opencontainers.image.url=${KEYCLOAK_URL} \
+      org.opencontainers.image.source=${KEYCLOAK_SOURCE} \
+      org.opencontainers.image.description=${KEYCLOAK_DESCRIPTION} \
+      org.opencontainers.image.documentation=${KEYCLOAK_DOCS}

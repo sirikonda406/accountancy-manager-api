@@ -38,11 +38,9 @@ import java.util.logging.Logger;
 @Transactional("indexTransactionManager")
 public class DatabaseContainerConfiguration {
 
-    private static final Logger LOGGER = Logger.getLogger(DatabaseContainerConfiguration.class.getName());
-
     @Container
     protected static final PostgreSQLContainer<?> POSTGRES;
-
+    private static final Logger LOGGER = Logger.getLogger(DatabaseContainerConfiguration.class.getName());
     private static final String TENANT_DB_SCRIPTS = "db/tenant";
     private static final String TENANT_DATABASE = "pulsewsc7d004881d924624903afe81641a5d8d";
     private static final String TENANT_SCHEMA = "67051f9afc2fe811f805d30f";

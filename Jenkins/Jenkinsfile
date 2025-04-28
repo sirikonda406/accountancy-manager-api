@@ -1,0 +1,146 @@
+pipeline {
+	agent { label 'belndevlab01' }
+    environment {
+		PATH = "/opt/jmeter/bin:/opt/jmeter/bin:${env.PATH}"
+        SLEEP_DURATION = 50
+        HELM_CHARTS = 'common,tms,workflow,ui,sp,xservices,licensing'
+    }
+    parameters {
+		choice(name: 'UNINSTALL', choices: ['all', 'chartOnly', 'none'], description: 'Choose uninstall option')
+        choice(name: 'INSTALL', choices: ['all', 'none'], description: 'Choose install option')
+        choice(name: 'PULSEDATASETUP', choices: ['all', 'none'], description: 'Choose Pulse data setup option')
+        choice(name: 'DEV_CLUSTER_NAME', choices: ['pulse-dev-01', 'pulse-dev-02', 'pulse-dev-03', 'pulse-dev-04', 'pulse-dev-05', 'pulse-dev-06', 'pulse-dev-07', 'pulse-dev-08', 'pulse-dev-09', 'pulse-dev-10', 'pulse-dev-11', 'pulse-dev-12'], description: 'Select development cluster')
+        string(name: 'PULSE_DATA_SETUP', defaultValue: '/opt/jmeter/test.jmx', description: 'Path to JMeter test file')
+    }
+    stages {
+
+		stage('Check ENV') {
+			steps {
+				logEnvironmentDetails() // Explicit environment details logging here
+            }
+        }
+
+		stage('Set kubectl Context') {
+			steps {
+				script {
+					def kubeContext = params.DEV_CLUSTER_NAME
+                    setKubeContext(kubeContext)
+                }
+
+    	}
+
+		stage('Clean Workspace') {
+				when { expression { params.UNINSTALL == 'all' } }
+            steps { cleanWs() }
+        }
+        stage('Uninstall Helm Charts') {
+				when { expression { params.UNINSTALL != 'none' } }
+            steps {
+					script {
+						def kubeConfigPath = generateKubeConfigPath(params.DEV_CLUSTER_NAME)
+                    uninstallHelmReleases(kubeConfigPath)
+                    if (params.UNINSTALL == 'all') {
+							deleteAllPVCs(kubeConfigPath)
+                        echo "Removed Helm charts and PVCs."
+                    } else {
+							echo "Removed Helm charts only."
+                    }
+                }
+            }
+        }
+        stage('Install Helm Charts') {
+				when { expression { params.INSTALL == 'all' } }
+            steps {
+					checkout scmGit(
+                    branches: [[name: '*/dev']],
+                    extensions: [],
+                    gitTool: 'Default',
+                    userRemoteConfigs: [[credentialsId: 'IRISNext_Git', url: 'https://git3.irisxtract.com/git/pulse-docker.git/']]
+                )
+                dir('Helms') {
+						script {
+							def kubeConfigPath = generateKubeConfigPath(params.DEV_CLUSTER_NAME)
+                        applyClusterSecrets(params.DEV_CLUSTER_NAME, kubeConfigPath)
+                        installHelmCharts(params.DEV_CLUSTER_NAME, kubeConfigPath)
+                    }
+                }
+            }
+        }
+
+        stage('Pulse Basic Data Setup') {
+				when { expression { params.PULSEDATASETUP == 'all' } }
+            steps {
+					script {
+						def command = "jmeter -n -t ${params.PULSE_DATA_SETUP} -l /home/irisrduser/results.jtl -e -o /home/irisrduser/results"
+                    echo "Running JMeter command: ${command}"
+                    sh command
+                }
+            }
+        }
+    }
+}
+
+// Helper function to log environment details
+def logEnvironmentDetails() {
+		echo "================= ENVIRONMENT DETAILS ================="
+    echo "KUBECONFIG: ${env.KUBECONFIG ?: 'Not Set'}"
+    echo "Development Cluster Name: ${params.DEV_CLUSTER_NAME}"
+    echo "Intial Pulse Data Setup option: ${params.PULSEDATASETUP}"
+    echo "Helm installation option selected ${params.INSTALL}"
+    echo "CURRENT USER: ${sh(script: 'whoami', returnStdout: true).trim()}"
+    echo "PATH: ${env.PATH}"
+    echo "Printing Jenkins Environment Variables..."
+	env.each { key, value ->echo "${key} = ${value}"}
+    echo "======================================================="
+}
+
+def setKubeContext(String kubeContext) {
+		def kubeConfigFilePath = KUBECONFIG_PATH
+    sh "kubectl --kubeconfig ${kubeConfigFilePath} config use-context ${kubeContext}"
+    echo "kubectl --kubeconfig ${kubeConfigFilePath} context set to: ${kubeContext}"
+}
+
+
+def generateKubeConfigPath(String clusterName) {
+		return "/home/irisrdadmin/.kube/config"
+}
+
+def uninstallHelmReleases(String kubeConfigPath) {
+		echo "================= UNINSTALLING HELM RELEASES ================== "
+    sh """
+        if helm list -q --kubeconfig ${kubeConfigPath} | grep -q .; then
+            echo "Uninstalling all Helm releases..."
+            helm uninstall \$(helm list -q --kubeconfig ${kubeConfigPath}) --kubeconfig ${kubeConfigPath}
+        else
+            echo "No Helm releases found. Nothing to uninstall."
+        fi
+    """
+     echo "======================================================="
+}
+
+def deleteAllPVCs(String kubeConfigPath) {
+		echo "================= DELETING ALL PVCs FOR  ================== "
+    sh "kubectl --kubeconfig ${kubeConfigPath} delete pvc --all"
+
+     echo "======================================================="
+}
+
+def applyClusterSecrets(String clusterName, String kubeConfigPath) {
+		def secretsFilePath = "${clusterName}.irisrd.com-secrets.yaml"
+    sh "kubectl apply -f ${secretsFilePath} --kubeconfig ${kubeConfigPath}"
+}
+
+def installHelmCharts(String clusterName, String kubeConfigPath) {
+		echo "================= INSTALLING HELM CHARTS ================== "
+
+	def helmCharts = env.HELM_CHARTS.split(',')
+    for (chart in helmCharts) {
+			def command = "helm install ${clusterName}-${chart} ./irispulse-new/${chart} -f ${clusterName}.irisrd.com-settings.yaml --kubeconfig ${kubeConfigPath}"
+        echo "Running Helm install: ${command}"
+        sh command
+        sleep env.SLEEP_DURATION.toInteger()
+    }
+
+     echo "======================================================="
+}
+}

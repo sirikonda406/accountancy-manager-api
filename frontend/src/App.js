@@ -1,18 +1,17 @@
-import logo from './logo.svg';
 import './App.css';
 import ListTasksComponent from './components/ListTasksComponent'
 
 function App() {
-  return (
-    <div>
+    return (
+        <div>
 
-        <p>
-          <h1>Accountancy Manager</h1>
-          <ListTasksComponent/>
-        </p>
+            <p>
+                <h1>Accountancy Manager</h1>
+                <ListTasksComponent/>
+            </p>
 
-    </div>
-  );
+        </div>
+    );
 }
 
 export default App;

@@ -1,15 +1,5 @@
-version: "3.9"
+version: '3.8'
 services:
-  keycloak:
-    extends:
-      service: keycloak
-      file: keycloak/docker-compose-keycloak-extended.yaml
-
-  postgresql:
-    extends:
-      service: postgresql
-      file: postgres/docker-compose-postgres.yaml
-
   # MongoDB for Graylog metadata
   mongo:
     image: mongo:4.2
@@ -46,9 +36,9 @@ services:
       - elasticsearch
     environment:
       # generate with: openssl rand -hex 32
-      - GRAYLOG_PASSWORD_SECRET=fzsJRl6uR5+G+jaILkoTHg==
+      - GRAYLOG_PASSWORD_SECRET=Qwert123456789012
       # generate SHA2 hash: echo -n Passw0rd | sha256sum
-      - GRAYLOG_ROOT_PASSWORD_SHA2=2c4779e28ec964baa2afdeb862be4b9776562866443cfcf22f37950c20ed0af2
+      #- GRAYLOG_ROOT_PASSWORD_SHA2=changeme_sha2_here
       - GRAYLOG_HTTP_EXTERNAL_URI=http://127.0.0.1:9000/
     ports:
       - "9000:9000"     # Web interface
@@ -61,7 +51,3 @@ volumes:
   mongo_data:
   es_data:
   graylog_journal:
-
-networks:
-  accountant:
-    driver: bridge
